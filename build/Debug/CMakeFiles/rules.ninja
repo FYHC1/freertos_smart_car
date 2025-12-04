@@ -35,7 +35,7 @@ rule C_COMPILER__free_rtos_temple_unscanned_Debug
 # Rule for linking C executable.
 
 rule C_EXECUTABLE_LINKER__free_rtos_temple_Debug
-  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\Users\hgl\AppData\Local\stm32cube\bundles\gnu-tools-for-stm32\13.3.1+st.9\bin\arm-none-eabi-gcc.exe $FLAGS -mcpu=cortex-m3  -T "E:/STM32C8T6/RTOS_Project/freertos_smart_car/STM32F103XX_FLASH.ld" --specs=nano.specs -Wl,-Map=free_rtos_temple.map -Wl,--gc-sections -Wl,--start-group -lc -lm -Wl,--end-group -Wl,--print-memory-usage $LINK_FLAGS $in -o $TARGET_FILE $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
+  command = C:\Windows\system32\cmd.exe /C "$PRE_LINK && C:\Users\hgl\AppData\Local\stm32cube\bundles\gnu-tools-for-stm32\13.3.1+st.9\bin\arm-none-eabi-gcc.exe $FLAGS -mcpu=cortex-m3  -T "D:/GitClone/freertos_smart_car/STM32F103XX_FLASH.ld" --specs=nano.specs -Wl,-Map=free_rtos_temple.map -Wl,--gc-sections -Wl,--start-group -lc -lm -Wl,--end-group -Wl,--print-memory-usage $LINK_FLAGS $in -o $TARGET_FILE $LINK_PATH $LINK_LIBRARIES && $POST_BUILD"
   description = Linking C executable $TARGET_FILE
   restat = $RESTAT
 
@@ -72,7 +72,7 @@ rule C_COMPILER__FreeRTOS_unscanned_Debug
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = C:\Users\hgl\AppData\Local\stm32cube\bundles\cmake\4.0.1+st.3\bin\cmake.exe --regenerate-during-build -SE:\STM32C8T6\RTOS_Project\freertos_smart_car -BE:\STM32C8T6\RTOS_Project\freertos_smart_car\build\Debug
+  command = C:\Users\hgl\AppData\Local\stm32cube\bundles\cmake\4.0.1+st.3\bin\cmake.exe --regenerate-during-build -SD:\GitClone\freertos_smart_car -BD:\GitClone\freertos_smart_car\build\Debug
   description = Re-running CMake...
   generator = 1
 

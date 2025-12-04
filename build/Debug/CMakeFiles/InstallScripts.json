@@ -1,8 +1,8 @@
 {
 	"InstallScripts" : 
 	[
-		"E:/STM32C8T6/RTOS_Project/freertos_smart_car/build/Debug/cmake_install.cmake",
-		"E:/STM32C8T6/RTOS_Project/freertos_smart_car/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
+		"D:/GitClone/freertos_smart_car/build/Debug/cmake_install.cmake",
+		"D:/GitClone/freertos_smart_car/build/Debug/cmake/stm32cubemx/cmake_install.cmake"
 	],
 	"Parallel" : false
 }
