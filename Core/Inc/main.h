@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stm32f1xx_hal_tim.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -57,12 +57,20 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define pwm_slave_Pin GPIO_PIN_0
-#define pwm_slave_GPIO_Port GPIOB
-#define moter_pwm1_Pin GPIO_PIN_8
-#define moter_pwm1_GPIO_Port GPIOA
-#define moter_pwm2_Pin GPIO_PIN_9
-#define moter_pwm2_GPIO_Port GPIOA
+#define MOTOR1_OT1_Pin GPIO_PIN_6
+#define MOTOR1_OT1_GPIO_Port GPIOA
+#define MOTOR1_OT2_Pin GPIO_PIN_7
+#define MOTOR1_OT2_GPIO_Port GPIOA
+#define PWM_SLAVE_Pin GPIO_PIN_0
+#define PWM_SLAVE_GPIO_Port GPIOB
+#define MOTOR2_OT1_Pin GPIO_PIN_14
+#define MOTOR2_OT1_GPIO_Port GPIOB
+#define MOTOR2_OT2_Pin GPIO_PIN_15
+#define MOTOR2_OT2_GPIO_Port GPIOB
+#define PWM_MOTOR1_Pin GPIO_PIN_8
+#define PWM_MOTOR1_GPIO_Port GPIOA
+#define PWM_MOTOR2_Pin GPIO_PIN_9
+#define PWM_MOTOR2_GPIO_Port GPIOA
 #define SR04_OT_Pin GPIO_PIN_11
 #define SR04_OT_GPIO_Port GPIOA
 #define SR04_IN_Pin GPIO_PIN_12
@@ -73,7 +81,7 @@ void Error_Handler(void);
 #define BT_RX_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+#define PWM_MOTOR_HANDLER &htim3
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
