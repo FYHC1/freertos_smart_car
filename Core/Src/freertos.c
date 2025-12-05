@@ -19,8 +19,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "stm32f103xb.h"
-#include "stm32f1xx_hal_tim.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
@@ -97,11 +95,6 @@ QueueHandle_t UartDataQueue;
 
 SemaphoreHandle_t motorMux_Handle;
 
-MotorStruct motor1 = {
-  .Motor_GPIO_Port = MOTOR1_OT1_GPIO_Port,
-  .Motor_GPIO_Pin = MOTOR1_OT1_Pin,
-  .htim = &htim1
-};
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
