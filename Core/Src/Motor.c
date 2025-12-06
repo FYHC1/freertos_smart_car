@@ -41,8 +41,8 @@ void Motor_Init(void)
 	HAL_GPIO_Init(MOTOR2_OT1_GPIO_Port, &GPIO_InitStruct);
 
 	/* Start PWM */
-	HAL_TIM_PWM_Start(PWM_MOTOR1_GPIO_Port, PWM_MOTOR1_Pin);
-	HAL_TIM_PWM_Start(PWM_MOTOR2_GPIO_Port, PWM_MOTOR2_Pin);
+	HAL_TIM_PWM_Start(&htim1, PWM_MOTOR1_Pin);
+	HAL_TIM_PWM_Start(&htim1, PWM_MOTOR2_Pin);
 }
 
 // void Motor_SetSpeed(int8_t Speed)
@@ -91,3 +91,4 @@ void MOTOR_TURN_RIGHT(uint8_t speed){
 	__HAL_TIM_SetCompare(&htim1,TIM_CHANNEL_1,speed * 0.6);
 	__HAL_TIM_SetCompare(&htim1,TIM_CHANNEL_2,speed);
 }
+

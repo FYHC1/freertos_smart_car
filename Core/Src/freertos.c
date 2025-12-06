@@ -31,6 +31,7 @@
 #include "tim.h"
 #include "task.h"
 #include "sr04.h"
+#include "usart.h"
 #include <stdint.h>
 /* USER CODE END Includes */
 
@@ -58,6 +59,10 @@ struct Motor_Struct{
   TIM_HandleTypeDef* htim;
 };
 
+#define RING_BUFFER_SIZE 64
+
+
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -75,9 +80,9 @@ static StackType_t BT_TaskStack[128];
 static StaticTask_t BT_TaskTCB;
 static TaskHandle_t BT_TaskHandle;
 
-static StackType_t Slave_TaskStack[128];
-static StaticTask_t Slave_TaskTCB;
-static TaskHandle_t Slave_TaskHandle;
+// static StackType_t Slave_TaskStack[128];
+// static StaticTask_t Slave_TaskTCB;
+// static TaskHandle_t Slave_TaskHandle;
 
 static StackType_t SR04_TaskStack[128];
 static StaticTask_t SR04_TaskTCB;
@@ -96,8 +101,19 @@ QueueHandle_t UartDataQueue;
 SemaphoreHandle_t motorMux_Handle;
 
 
+// 实际用于 DMA 接收的数组
+uint8_t RxRingBuffer[RING_BUFFER_SIZE];
+
+// 读写指针
+// ReadPtr: 下一次 FreeRTOS 任务应该从哪里开始读取数据（消费者）
+volatile uint16_t RxReadPtr = 0; 
+
+// DMA 是写指针的生产者，它的位置由硬件寄存器决定，
+// 通常不需要显式定义 WritePtr 变量，而是通过查询 DMA 计数器获得。
+
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
+
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
@@ -127,6 +143,13 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
   DRV8833_Init();
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
+
+  // 启动 DMA 循环接收
+  // DMA 会从 huart1 持续接收数据到 RxRingBuffer，直到 512 字节满后自动回到起点
+  HAL_UART_Receive_DMA(&huart1, RxRingBuffer, RING_BUFFER_SIZE);
+
+  // 启用 UART 空闲中断 (必须启用)
+  __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -349,14 +372,14 @@ void SR04Play(void *pvParameters)
  
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if(huart->Instance != USART1)
-    return;
-  uint8_t UartRecevieData[2] = {0};
-  HAL_UART_Receive_IT(huart,UartRecevieData,2);
-  xQueueSendToBackFromISR(UartDataQueue,&UartRecevieData,(BaseType_t*)pdTRUE);
-  xTaskNotifyGive(BT_TaskHandle);
-}
+// void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+// {
+//   if(huart->Instance != USART1)
+//     return;
+//   uint8_t UartRecevieData[2] = {0};
+//   HAL_UART_Receive_IT(huart,UartRecevieData,2);
+//   xQueueSendToBackFromISR(UartDataQueue,&UartRecevieData,(BaseType_t*)pdTRUE);
+//   xTaskNotifyGive(BT_TaskHandle);
+// }
 /* USER CODE END Application */
 
