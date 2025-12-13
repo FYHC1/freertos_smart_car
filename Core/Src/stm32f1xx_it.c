@@ -197,28 +197,10 @@ void USART1_IRQHandler(void)
     // 清除空闲中断标志位
     __HAL_UART_CLEAR_IDLEFLAG(&huart1);
 
-    // 计算当前 DMA 写入位置
-    uint16_t currentPos = RING_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart1.hdmarx);
-
-    // 如果写指针没有移动，说明没有新数据，直接返回
-    if (currentPos == RxWritePtr)
-    {
-      return;
-    }
-
-    // 计算新数据长度
-    uint16_t dataLength;
-    if (currentPos > RxWritePtr)
-    {
-      dataLength = currentPos - RxWritePtr;
-    }
-    else
-    {
-      dataLength = RING_BUFFER_SIZE - RxWritePtr + currentPos;
-    }
+    // DMA_GetCounter 返回的是剩余未传输的字节数
+    RxWritePtr = RING_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart1.hdmarx);
 
     // 通知 BLE 解析任务有新数据可读
-    RxWritePtr = currentPos;
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     vTaskNotifyGiveFromISR(BLE_Parser_TaskHandle, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);

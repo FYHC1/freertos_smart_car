@@ -76,9 +76,10 @@ static StackType_t Motor_TaskStack[128];
 static StaticTask_t Motor_TaskTCB;
 static TaskHandle_t Motor_TaskHandle;
 
-static StackType_t BT_TaskStack[128];
-static StaticTask_t BT_TaskTCB;
-static TaskHandle_t BT_TaskHandle;
+static StackType_t BLE_Parser_TaskStack[128];
+static StaticTask_t BLE_Parser_TaskTCB;
+static TaskHandle_t BLE_Parser_TaskHandle;
+//static TaskHandle_t BLE_Parser_TaskHandle;
 
 // static StackType_t Slave_TaskStack[128];
 // static StaticTask_t Slave_TaskTCB;
@@ -124,7 +125,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 void MotorPlay(void *pvParameters);
-void BTControl(void *pvParameters);
+void BLEParserTask(void *pvParameters);
 void SlaveControl(void *pvParameters);
 void SR04Play(void *pvParameters);
 
@@ -180,7 +181,7 @@ void MX_FREERTOS_Init(void) {
   /*创建任务电机运行*/
   Motor_TaskHandle = xTaskCreateStatic(MotorPlay,"MotorPlayTask",128,NULL,osPriorityNormal,Motor_TaskStack,&Motor_TaskTCB);
   /*创建任务蓝牙控制*/
-  BT_TaskHandle = xTaskCreateStatic(BTControl,"BTControlTask",128,NULL,osPriorityNormal2,BT_TaskStack,&BT_TaskTCB);
+  BLE_Parser_TaskHandle = xTaskCreateStatic(BLEParserTask,"BLEParserTask",128,NULL,osPriorityNormal2,BLE_Parser_TaskStack,&BLE_Parser_TaskTCB);
   // /*创建任务舵机方向控制*/
   // Slave_TaskHandle = xTaskCreateStatic(SlaveControl,"SlaveControlTask",128,NULL,osPriorityNormal1,Slave_TaskStack,&Slave_TaskTCB);
   /*创建任务超声波避障*/
@@ -213,94 +214,14 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-void BTControl(void *pvParameters)
+void BLEParserTask(void *pvParameters)
 {
-  BaseType_t xReturn = pdTRUE;
-  uint8_t UartRecevieData[2]={0};
+  
 
   while(1){
-    ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
-    xReturn = xQueueReceive(UartDataQueue,UartRecevieData,100);
-    if(xReturn == pdFALSE)
-    {
-      vTaskDelay(100);
-    }
-    else if (UartRecevieData[0] == 0)
-    {
-      if (UartRecevieData[1] == 0)
-      {
-        /*停止*/
-        DRV8833_Brake();
-      }
-      else if (UartRecevieData[1] == 1)
-      {
-        /*前进*/
-        if (motorState == MOTOR_FORWARD)
-          return;
-        if (motorState == MOTOR_BRAKE)
-          DRV8833_Forward(speed);
-        else if (motorState == MOTOR_BACKWARD)
-        {
-          DRV8833_Brake();
-          DRV8833_Forward(speed);
-        }
-      }
-      else if (UartRecevieData[1] == 2)
-      {
-        /*后退*/
-        if (motorState == MOTOR_BACKWARD)
-          return;
-        if (motorState == MOTOR_BRAKE)
-          DRV8833_Backward(speed);
-        else if (motorState == MOTOR_FORWARD)
-        {
-          DRV8833_Brake();
-          DRV8833_Backward(speed);
-        }
-        
-      }
-    }
-
-    if (UartRecevieData[0] == 1)
-    {
-      if (UartRecevieData[1] == 0)
-      {
-        /*左转*/
-        if (servoAngle >=15)
-        {
-          servoAngle = servoAngle - 15;
-          duty =  (10* servoAngle/(float)SERVO_MAXANGLE +2.5)/100 *2000;
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, duty);
-        }
-      }
-      else if (UartRecevieData[1] == 1)
-      {
-        /*右转*/
-        if (servoAngle <=75)
-        {
-          servoAngle = servoAngle + 15;
-          duty =  (10* servoAngle/(float)SERVO_MAXANGLE +2.5)/100 *2000;
-          __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, duty);
-        }
-      }
-    }
-
-    if (UartRecevieData[0] == 2)
-    {
-      if (UartRecevieData[1] == 0)
-      {
-        /*减速*/
-        if (speed >= 20)
-          speed = speed - 20;
-      }
-      else if (UartRecevieData[1] == 1)
-      {
-        /*加速*/
-        if (speed <= 80)
-          speed = speed + 20;
-      }
-    }
+    
   }
+    
 }
 
 void MotorPlay(void *pvParameters)
@@ -379,7 +300,7 @@ void SR04Play(void *pvParameters)
 //   uint8_t UartRecevieData[2] = {0};
 //   HAL_UART_Receive_IT(huart,UartRecevieData,2);
 //   xQueueSendToBackFromISR(UartDataQueue,&UartRecevieData,(BaseType_t*)pdTRUE);
-//   xTaskNotifyGive(BT_TaskHandle);
+//   xTaskNotifyGive(BLE_Parser_TaskHandle);
 // }
 /* USER CODE END Application */
 
