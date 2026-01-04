@@ -19,6 +19,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
+#include "portmacro.h"
+#include "projdefs.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
@@ -59,8 +61,17 @@ struct Motor_Struct{
   TIM_HandleTypeDef* htim;
 };
 
-#define RING_BUFFER_SIZE 64
+typedef struct {
+    int16_t speed;  // -1000 到 +1000
+    int16_t turn;   // -1000 到 +1000
+    uint8_t func_flags;
+} CarControl_t;
 
+#define RING_BUFFER_SIZE 64
+// 帧定义，方便解析
+#define FRAME_SIZE 8
+#define HEADER_BYTE 0x5A
+#define TAIL_BYTE   0xA5
 
 
 /* USER CODE END PD */
@@ -96,8 +107,8 @@ static uint8_t servoAngle = 45;
 static uint8_t duty = 0;
 
 static StaticQueue_t xStaticQueue;
-static uint8_t UartQueueStorageArea[QUEUE_LENGTH*ITEM_SIZE];
-QueueHandle_t UartDataQueue;
+static uint8_t MotorCmdQueueStorageArea[QUEUE_LENGTH*ITEM_SIZE];
+QueueHandle_t MotorCmdQueue;
 
 SemaphoreHandle_t motorMux_Handle;
 
@@ -168,7 +179,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-  UartDataQueue = xQueueCreateStatic(QUEUE_LENGTH,ITEM_SIZE,UartQueueStorageArea,&xStaticQueue);
+  MotorCmdQueue = xQueueCreateStatic(QUEUE_LENGTH,ITEM_SIZE,MotorCmdQueueStorageArea,&xStaticQueue);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -214,12 +225,79 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+
+uint16_t GetAvailableDataLength(void){
+  //保存当前写指针位置
+  extern RxWritePtr;
+  //关闭中断，防止读写指针变化
+  __disable_irq();
+  uint16_t temp_WritePtr = RxWritePtr;
+  __enable_irq(); 
+  if (temp_WritePtr >= RxReadPtr)
+  {
+    //正常情况，写指针在读指针之后
+    return temp_WritePtr - RxReadPtr;
+  }
+  else
+  {
+    //写指针越界回到起点
+    return RING_BUFFER_SIZE - (RxReadPtr - temp_WritePtr);
+  }
+
+}
+
+
 void BLEParserTask(void *pvParameters)
 {
-  
+  CarControl_t cmd;
 
   while(1){
+    //等待IDLE中断通知，永久阻塞
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
+    while (GetAvailableDataLength() >= FRAME_SIZE)
+    {
+      // 检查帧头
+      while(RxRingBuffer[RxReadPtr] != HEADER_BYTE && GetAvailableDataLength() >= FRAME_SIZE)
+      {
+        // 丢弃无效数据
+        RxReadPtr = (RxReadPtr + 1) % RING_BUFFER_SIZE;
+      }
     
+      //提取和校验一帧数据
+      uint8_t buffer[FRAME_SIZE];
+      for (int i = 0; i < FRAME_SIZE; i++)
+      {
+        buffer[i] = RxRingBuffer[(RxReadPtr + i) % RING_BUFFER_SIZE];
+      }
+      if (buffer[FRAME_SIZE - 1] != TAIL_BYTE)
+      {
+        // 帧尾错误，丢弃帧头，继续寻找下一帧
+        RxReadPtr = (RxReadPtr + 1) % RING_BUFFER_SIZE;
+        continue;
+      
+      }
+
+      //检查校验和
+      uint8_t checksum = 0;
+      for (int i = 1; i <= 5; i++) {
+        checksum += buffer[i];
+      }
+      if (checksum != buffer[6]) {
+        // 校验和错误，丢弃帧头，继续寻找下一帧
+        RxReadPtr = (RxReadPtr + 1) % RING_BUFFER_SIZE;
+        continue;
+      }
+
+      // 解析有效帧
+      cmd.speed = (int16_t)(buffer[1] | (buffer[2]) << 8);
+      cmd.turn = (int16_t)(buffer[3] | (buffer[4]) << 8);
+      cmd.func_flags = buffer[5];
+
+      // 更新队列，跳过已处理的数据
+      xQueueOverwrite(MotorCmdQueue, &cmd);
+      RxReadPtr = (RxReadPtr + FRAME_SIZE) % RING_BUFFER_SIZE;
+    }
   }
     
 }
@@ -299,7 +377,7 @@ void SR04Play(void *pvParameters)
 //     return;
 //   uint8_t UartRecevieData[2] = {0};
 //   HAL_UART_Receive_IT(huart,UartRecevieData,2);
-//   xQueueSendToBackFromISR(UartDataQueue,&UartRecevieData,(BaseType_t*)pdTRUE);
+//   xQueueSendToBackFromISR(MotorCmdQueue,&UartRecevieData,(BaseType_t*)pdTRUE);
 //   xTaskNotifyGive(BLE_Parser_TaskHandle);
 // }
 /* USER CODE END Application */
