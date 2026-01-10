@@ -56,7 +56,7 @@
 // 表示 DMA 当前写入的**位置**（写指针）
 volatile uint16_t RxWritePtr = 0; 
 extern TaskHandle_t BLE_Parser_TaskHandle;
-extern RING_BUFFER_SIZE;
+extern uint16_t RING_BUFFER_SIZE;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -79,6 +79,7 @@ void NMI_Handler(void)
   /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
    while (1)
   {
+
   }
   /* USER CODE END NonMaskableInt_IRQn 1 */
 }

@@ -92,3 +92,49 @@ void MOTOR_TURN_RIGHT(uint8_t speed){
 	__HAL_TIM_SetCompare(&htim1,TIM_CHANNEL_2,speed);
 }
 
+void SetMotorPWM(float pwm_left, float pwm_right) {
+    // 1. 确保 STBY 为高电平，开启驱动芯片 [cite: 86, 136]
+    // HAL_GPIO_WritePin(STBY_PORT, STBY_PIN, GPIO_PIN_SET);
+
+    // --- 左电机控制 (Motor A) ---
+    if (pwm_left > DEAD_ZONE) {
+        // 正转 (Forward): AIN1=H, AIN2=L 
+        HAL_GPIO_WritePin(MOTOR1_OT1_GPIO_Port, MOTOR1_OT1_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(MOTOR1_OT2_GPIO_Port, MOTOR1_OT2_Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(TIM_HANDLE, TIM_CH_LEFT, pwm_left);
+    } 
+    else if (pwm_left < -DEAD_ZONE) {
+        // 反转 (Reverse): AIN1=L, AIN2=H 
+        HAL_GPIO_WritePin(MOTOR1_OT1_GPIO_Port, MOTOR1_OT1_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(MOTOR1_OT2_GPIO_Port, MOTOR1_OT2_Pin, GPIO_PIN_SET);
+        // PWM 寄存器只接受正数，取绝对值
+        __HAL_TIM_SET_COMPARE(TIM_HANDLE, TIM_CH_LEFT, -pwm_left);
+    } 
+    else {
+        // 停止 (Stop): AIN1=L, AIN2=L 
+        HAL_GPIO_WritePin(MOTOR1_OT1_GPIO_Port, MOTOR1_OT1_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(MOTOR1_OT2_GPIO_Port, MOTOR1_OT2_Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(TIM_HANDLE, TIM_CH_LEFT, 0);
+    }
+
+    // --- 右电机控制 (Motor B) ---
+    if (pwm_right > DEAD_ZONE) {
+        // 正转 (Forward): BIN1=H, BIN2=L 
+        HAL_GPIO_WritePin(MOTOR2_OT1_GPIO_Port, MOTOR2_OT1_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(MOTOR2_OT2_GPIO_Port, MOTOR2_OT2_Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(TIM_HANDLE, TIM_CH_RIGHT, pwm_right);
+    } 
+    else if (pwm_right < -DEAD_ZONE) {
+        // 反转 (Reverse): BIN1=L, BIN2=H 
+        HAL_GPIO_WritePin(MOTOR2_OT1_GPIO_Port, MOTOR2_OT1_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(MOTOR2_OT2_GPIO_Port, MOTOR2_OT2_Pin, GPIO_PIN_SET);
+        __HAL_TIM_SET_COMPARE(TIM_HANDLE, TIM_CH_RIGHT, -pwm_right);
+    } 
+    else {
+        // 停止 (Stop): BIN1=L, BIN2=L 
+        HAL_GPIO_WritePin(MOTOR2_OT1_GPIO_Port, MOTOR2_OT1_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(MOTOR2_OT2_GPIO_Port, MOTOR2_OT2_Pin, GPIO_PIN_RESET);
+        __HAL_TIM_SET_COMPARE(TIM_HANDLE, TIM_CH_RIGHT, 0);
+    }
+}
+

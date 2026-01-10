@@ -19,8 +19,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
-#include "portmacro.h"
-#include "projdefs.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
@@ -35,6 +33,8 @@
 #include "sr04.h"
 #include "usart.h"
 #include <stdint.h>
+#include <stdlib.h>
+#include "Motor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,11 +44,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define MOTOR_BRAKE 'b'
-#define MOTOR_FORWARD 'f'
-#define MOTOR_BACKWARD 'g'
-#define MOTOR_COAST 'c'
+// #define MOTOR_BRAKE 'b'
+// #define MOTOR_FORWARD 'f'
+// #define MOTOR_BACKWARD 'g'
+// #define MOTOR_COAST 'c'
 
+#define MAX_PWM_VALUE 10000  // 最大 PWM 占空比对应的值
 #define SERVO_MAXANGLE 90
 #define SERVO_MINANGLE 0
 
@@ -89,7 +90,7 @@ static TaskHandle_t Motor_TaskHandle;
 
 static StackType_t BLE_Parser_TaskStack[128];
 static StaticTask_t BLE_Parser_TaskTCB;
-static TaskHandle_t BLE_Parser_TaskHandle;
+TaskHandle_t BLE_Parser_TaskHandle;
 //static TaskHandle_t BLE_Parser_TaskHandle;
 
 // static StackType_t Slave_TaskStack[128];
@@ -101,7 +102,7 @@ static StaticTask_t SR04_TaskTCB;
 static TaskHandle_t SR04_TaskHandle;
 
 //static uint8_t UartRecevieData[2];
-static char motorState = MOTOR_BRAKE;
+//static char motorState = MOTOR_BRAKE;
 static uint8_t speed = 0;
 static uint8_t servoAngle = 45;
 static uint8_t duty = 0;
@@ -125,7 +126,6 @@ volatile uint16_t RxReadPtr = 0;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
-
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
@@ -135,10 +135,12 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-void MotorPlay(void *pvParameters);
+void MotorTask(void *pvParameters);
 void BLEParserTask(void *pvParameters);
 void SlaveControl(void *pvParameters);
 void SR04Play(void *pvParameters);
+void SetMotorPWM(float pwm_left, float pwm_right);
+
 
 /* USER CODE END FunctionPrototypes */
 
@@ -190,7 +192,7 @@ void MX_FREERTOS_Init(void) {
   /* add threads, ... */
 
   /*创建任务电机运行*/
-  Motor_TaskHandle = xTaskCreateStatic(MotorPlay,"MotorPlayTask",128,NULL,osPriorityNormal,Motor_TaskStack,&Motor_TaskTCB);
+  Motor_TaskHandle = xTaskCreateStatic(MotorTask,"MotorTaskTask",128,NULL,osPriorityNormal,Motor_TaskStack,&Motor_TaskTCB);
   /*创建任务蓝牙控制*/
   BLE_Parser_TaskHandle = xTaskCreateStatic(BLEParserTask,"BLEParserTask",128,NULL,osPriorityNormal2,BLE_Parser_TaskStack,&BLE_Parser_TaskTCB);
   // /*创建任务舵机方向控制*/
@@ -228,7 +230,7 @@ void StartDefaultTask(void *argument)
 
 uint16_t GetAvailableDataLength(void){
   //保存当前写指针位置
-  extern RxWritePtr;
+  extern uint16_t RxWritePtr;
   //关闭中断，防止读写指针变化
   __disable_irq();
   uint16_t temp_WritePtr = RxWritePtr;
@@ -302,18 +304,62 @@ void BLEParserTask(void *pvParameters)
     
 }
 
-void MotorPlay(void *pvParameters)
+void MotorTask(void *pvParameters)
 {
-  while(1)
-  {
-    if (motorState == MOTOR_BRAKE)
-      DRV8833_Brake();
-    else if (motorState == MOTOR_FORWARD)
-      DRV8833_Forward(speed);
-    else if (motorState == MOTOR_BACKWARD)
-      DRV8833_Backward(speed);
-    else if (motorState == MOTOR_COAST)
-      DRV8833_Coast();
+  CarControl_t target;    // 目标值
+  float current_spd = 0;  // 当前平滑后的速度
+  float current_turn = 0; // 当前平滑后的转向
+
+  // 平滑系数 (值越小，惯性越大)
+  // 0.1 表示每次循环只向目标值靠近 10%
+  const float SMOOTH_FACTOR_ACC = 0.15f; // 加速平滑
+  const float SMOOTH_FACTOR_DEC = 0.30f; // 减速/刹车要快一点
+
+  const float PWM_SCALE = (float)MAX_PWM_VALUE / 1000.0f;
+
+  while (1) {
+    // 1. 取出最新指令 (如果没有新指令，保持 target 不变，或者加超时归零逻辑)
+    if (xQueuePeek(MotorCmdQueue, &target, 0) == pdTRUE) {
+      // 2. 速度平滑处理 (低通滤波算法)
+      if (abs(target.speed) > abs(current_spd))
+        // 正在加速
+        current_spd += (target.speed - current_spd) * SMOOTH_FACTOR_ACC;
+      else
+        // 正在减速/松开摇杆
+        current_spd += (target.speed - current_spd) * SMOOTH_FACTOR_DEC;
+
+      // 转向通常不需要太大的延迟，直接赋值或给很大系数
+      current_turn = target.turn;
+
+      // 3. 差速混合算法 (Mixing)
+      // 左轮 = 前进 + 转向
+      // 右轮 = 前进 - 转向
+      float motor_l_float  = current_spd + current_turn;
+      float motor_r_float = current_spd - current_turn;
+
+      int16_t pwm_l = (int16_t)(motor_l_float * PWM_SCALE);
+      int16_t pwm_r = (int16_t)(motor_r_float * PWM_SCALE);
+
+      // 限幅保护 (防止超过 PWM 最大值)
+      if (pwm_l > MAX_PWM_VALUE)
+        pwm_l = MAX_PWM_VALUE;
+      else if (pwm_l < -MAX_PWM_VALUE)
+        pwm_l = -MAX_PWM_VALUE;
+      if (pwm_r > MAX_PWM_VALUE)
+        pwm_r = MAX_PWM_VALUE;
+      else if (pwm_r < -MAX_PWM_VALUE)
+        pwm_r = -MAX_PWM_VALUE;
+
+      // 4. 调用上一条回答中的驱动函数
+      // 注意：这里需要把 +/-100 的范围映射到 PWM (例如 +/- 1000)
+      //SetMotorPWM(motor_l_float * 10, motor_r_float * 10);
+      SetMotorPWM(motor_l_float, motor_r_float);
+    } else {
+      // (可选) 增加看门狗逻辑：如果队列 500ms 没刷新，强制停车
+    }
+
+    // 5. 严格控制控制频率 50Hz
+    vTaskDelay(20);
   }
 }
 
