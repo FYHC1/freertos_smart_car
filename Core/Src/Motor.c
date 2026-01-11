@@ -92,7 +92,7 @@ void MOTOR_TURN_RIGHT(uint8_t speed){
 	__HAL_TIM_SetCompare(&htim1,TIM_CHANNEL_2,speed);
 }
 
-void SetMotorPWM(float pwm_left, float pwm_right) {
+void SetMotor(float pwm_left, float pwm_right) {
     // 1. 确保 STBY 为高电平，开启驱动芯片 [cite: 86, 136]
     // HAL_GPIO_WritePin(STBY_PORT, STBY_PIN, GPIO_PIN_SET);
 

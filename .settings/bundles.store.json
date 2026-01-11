@@ -62,7 +62,7 @@
     },
     {
       "name": "st-arm-clang",
-      "version": "19.1.6+st.10"
+      "version": "19.1.6+st.9"
     }
   ]
 }

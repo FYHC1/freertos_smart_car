@@ -22,6 +22,7 @@
 #include "stm32f1xx_it.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include <stdint.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -56,7 +57,7 @@
 // 表示 DMA 当前写入的**位置**（写指针）
 volatile uint16_t RxWritePtr = 0; 
 extern TaskHandle_t BLE_Parser_TaskHandle;
-extern uint16_t RING_BUFFER_SIZE;
+#define RING_BUFFER_SIZE 64
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/

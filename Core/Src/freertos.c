@@ -69,6 +69,7 @@ typedef struct {
 } CarControl_t;
 
 #define RING_BUFFER_SIZE 64
+//const uint16_t RING_BUFFER_SIZE = 64;
 // 帧定义，方便解析
 #define FRAME_SIZE 8
 #define HEADER_BYTE 0x5A
@@ -139,7 +140,7 @@ void MotorTask(void *pvParameters);
 void BLEParserTask(void *pvParameters);
 void SlaveControl(void *pvParameters);
 void SR04Play(void *pvParameters);
-void SetMotorPWM(float pwm_left, float pwm_right);
+//void SetMotorPWM(float pwm_left, float pwm_right);
 
 
 /* USER CODE END FunctionPrototypes */
@@ -352,8 +353,8 @@ void MotorTask(void *pvParameters)
 
       // 4. 调用上一条回答中的驱动函数
       // 注意：这里需要把 +/-100 的范围映射到 PWM (例如 +/- 1000)
-      //SetMotorPWM(motor_l_float * 10, motor_r_float * 10);
-      SetMotorPWM(motor_l_float, motor_r_float);
+      SetMotor(motor_l_float * 10, motor_r_float * 10);
+      //SetMotorPWM(motor_l_float, motor_r_float);
     } else {
       // (可选) 增加看门狗逻辑：如果队列 500ms 没刷新，强制停车
     }
